@@ -1,367 +1,174 @@
 import streamlit as st
 import requests
-import pandas as pd
+import time
 from datetime import datetime
 
-# =====================================
-# API
-# =====================================
-API_KEY = "2549da2ef45ba49efcd4b5ec65be1d7e"
-BASE_URL = "https://v3.football.api-sports.io"
+st.set_page_config(page_title="ELITE AI", layout="wide")
 
-HEADERS = {
-    "x-apisports-key": API_KEY
-}
-
-# =====================================
-# SAYFA AYARLARI
-# =====================================
-st.set_page_config(
-    page_title="ELITE AI LIVE TERMINAL",
-    layout="wide"
-)
-
-# =====================================
-# CSS
-# =====================================
 st.markdown("""
 <style>
-
-html, body, [class*="css"]  {
+body {
     background-color: #0f172a;
-    color: white;
 }
 
-.main-title {
-    font-size: 38px;
-    font-weight: bold;
-    color: #00ff99;
-    margin-bottom: 25px;
+.main {
+    background-color: #0f172a;
 }
 
-.match-card {
+.card {
     background: #111827;
-    padding: 14px;
-    border-radius: 14px;
+    padding: 15px;
+    border-radius: 15px;
     margin-bottom: 12px;
-    border: 1px solid #1f2937;
+    border-left: 5px solid #22c55e;
+    box-shadow: 0 0 10px rgba(0,0,0,0.4);
 }
 
 .league {
-    color: #9ca3af;
-    font-size: 14px;
-    margin-bottom: 8px;
+    color: #38bdf8;
+    font-size: 18px;
+    font-weight: bold;
 }
 
 .teams {
-    font-size: 22px;
+    color: white;
+    font-size: 24px;
     font-weight: bold;
 }
 
 .minute {
     color: orange;
-    font-size: 17px;
-    font-weight: bold;
-}
-
-.signal-green {
-    background: #064e3b;
-    color: #6ee7b7;
-    padding: 6px 12px;
-    border-radius: 10px;
-    font-weight: bold;
-    display: inline-block;
+    font-size: 18px;
 }
 
 .signal-red {
-    background: #7f1d1d;
-    color: #fca5a5;
-    padding: 6px 12px;
-    border-radius: 10px;
+    color: #ef4444;
     font-weight: bold;
-    display: inline-block;
+    font-size: 20px;
+}
+
+.signal-green {
+    color: #22c55e;
+    font-weight: bold;
+    font-size: 20px;
 }
 
 .signal-yellow {
-    background: #78350f;
-    color: #fde68a;
-    padding: 6px 12px;
-    border-radius: 10px;
+    color: #facc15;
     font-weight: bold;
-    display: inline-block;
+    font-size: 20px;
 }
 
 .signal-gray {
-    background: #374151;
-    color: #d1d5db;
-    padding: 6px 12px;
-    border-radius: 10px;
+    color: #9ca3af;
     font-weight: bold;
-    display: inline-block;
+    font-size: 20px;
 }
 
 .probability {
+    color: #38bdf8;
     font-size: 18px;
     font-weight: bold;
-    color: #00ff99;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
-# =====================================
-# BAŞLIK
-# =====================================
-st.markdown("""
-<div class="main-title">
-⚽ ELITE AI CANLI FUTBOL TERMİNALİ
-</div>
-""", unsafe_allow_html=True)
+st.title("⚽ ELITE AI CANLI FUTBOL TERMINALI")
 
-# =====================================
-# API FUNCTIONS
-# =====================================
-def get_live_matches():
+API_URL = "https://api-football-v1.p.rapidapi.com/v3/fixtures?live=all"
 
-    url = f"{BASE_URL}/fixtures?live=all"
+headers = {
+    "X-RapidAPI-Key": "2549da2ef45ba49efcd4b5ec65be1d7e",
+    "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+}
 
-    response = requests.get(url, headers=HEADERS)
-
-    if response.status_code != 200:
-        return []
-
+try:
+    response = requests.get(API_URL, headers=headers)
     data = response.json()
 
-    return data.get("response", [])
+    matches = data["response"]
 
-def get_fixture_statistics(fixture_id):
+    if len(matches) == 0:
+        st.warning("Canlı maç bulunamadı.")
 
-    url = f"{BASE_URL}/fixtures/statistics?fixture={fixture_id}"
+    else:
+        for match in matches:
 
-    response = requests.get(url, headers=HEADERS)
-
-    if response.status_code != 200:
-        return []
-
-    data = response.json()
-
-    return data.get("response", [])
-
-# =====================================
-# PARSE
-# =====================================
-def parse_stat(stats, key):
-
-    for item in stats:
-
-        if item["type"] == key:
-
-            value = item["value"]
-
-            if value is None:
-                return 0
-
-            if isinstance(value, str):
-                value = value.replace("%", "")
-
-            try:
-                return float(value)
-            except:
-                return 0
-
-    return 0
-
-# =====================================
-# MOMENTUM
-# =====================================
-def calculate_momentum(stats):
-
-    dangerous = parse_stat(stats, "Dangerous Attacks")
-    shots = parse_stat(stats, "Shots on Goal")
-    corners = parse_stat(stats, "Corner Kicks")
-    possession = parse_stat(stats, "Ball Possession")
-
-    momentum = (
-        dangerous * 0.4 +
-        shots * 12 +
-        corners * 4 +
-        possession * 0.3
-    )
-
-    return round(momentum, 2)
-
-# =====================================
-# AI SIGNAL
-# =====================================
-def generate_signal(
-    minute,
-    home_momentum,
-    away_momentum,
-    home_sog,
-    away_sog,
-    home_dangerous,
-    away_dangerous
-):
-
-    total_sog = home_sog + away_sog
-
-    # KAOS
-    if minute >= 75 and total_sog >= 8:
-        return "💣 KAOS MAÇI", "signal-red", 87
-
-    # EV GOL
-    if (
-        home_momentum > away_momentum and
-        home_sog >= 3 and
-        home_dangerous >= 20
-    ):
-        return "🔥 EV GOLÜ YÜKSEK", "signal-green", 78
-
-    # DEPLASMAN GOL
-    if (
-        away_momentum > home_momentum and
-        away_sog >= 3 and
-        away_dangerous >= 20
-    ):
-        return "🚨 DEPLASMAN GOLÜ", "signal-yellow", 75
-
-    # ÖLÜ
-    if minute >= 35 and total_sog <= 1:
-        return "💀 ÖLÜ MAÇ", "signal-gray", 22
-
-    return "⚪ NORMAL", "signal-gray", 50
-
-# =====================================
-# MAÇLARI ÇEK
-# =====================================
-matches = get_live_matches()
-
-if len(matches) == 0:
-
-    st.warning("Şu anda canlı maç bulunamadı.")
-
-else:
-
-    signal_matches = []
-
-    for match in matches:
-
-        try:
-
-            fixture_id = match["fixture"]["id"]
-
-            minute = match["fixture"]["status"]["elapsed"]
-
-            if minute is None:
-                continue
+            league = match["league"]["name"]
 
             home = match["teams"]["home"]["name"]
             away = match["teams"]["away"]["name"]
 
-            league = match["league"]["name"]
+            home_goals = match["goals"]["home"]
+            away_goals = match["goals"]["away"]
 
-            home_goals = match["goals"]["home"] or 0
-            away_goals = match["goals"]["away"] or 0
+            minute = match["fixture"]["status"]["elapsed"]
 
-            stats = get_fixture_statistics(fixture_id)
+            total_goals = (home_goals or 0) + (away_goals or 0)
 
-            if len(stats) < 2:
-                continue
+            signal = "⚪ NORMAL"
+            signal_class = "signal-gray"
+            probability = 50
 
-            home_stats = stats[0]["statistics"]
-            away_stats = stats[1]["statistics"]
+            # GOL BASKI SİSTEMİ
 
-            home_momentum = calculate_momentum(home_stats)
-            away_momentum = calculate_momentum(away_stats)
+            if minute >= 70 and total_goals <= 1:
+                signal = "🔥 GOL GELİYOR"
+                signal_class = "signal-red"
+                probability = 87
 
-            home_sog = parse_stat(home_stats, "Shots on Goal")
-            away_sog = parse_stat(away_stats, "Shots on Goal")
+            elif minute >= 55 and total_goals >= 2:
+                signal = "🟢 ÜST CANLI"
+                signal_class = "signal-green"
+                probability = 82
 
-            home_dangerous = parse_stat(
-                home_stats,
-                "Dangerous Attacks"
-            )
+            elif minute <= 25 and total_goals >= 1:
+                signal = "⚡ MAÇ HIZLI"
+                signal_class = "signal-yellow"
+                probability = 75
 
-            away_dangerous = parse_stat(
-                away_stats,
-                "Dangerous Attacks"
-            )
+            elif minute >= 80 and abs((home_goals or 0) - (away_goals or 0)) == 1:
+                signal = "🚨 SON DAKİKA GOLÜ"
+                signal_class = "signal-red"
+                probability = 91
 
-            signal, signal_class, probability = generate_signal(
-                minute,
-                home_momentum,
-                away_momentum,
-                home_sog,
-                away_sog,
-                home_dangerous,
-                away_dangerous
-            )
+            card = f"""
+            <div class="card">
 
-            signal_matches.append({
-                "league": league,
-                "minute": minute,
-                "home": home,
-                "away": away,
-                "score": f"{home_goals}-{away_goals}",
-                "signal": signal,
-                "signal_class": signal_class,
-                "probability": probability
-            })
+                <div class="league">
+                    {league}
+                </div>
 
-        except:
-            pass
+                <br>
 
-    # =====================================
-    # EN İYİLERİ ÜSTE
-    # =====================================
-    signal_matches = sorted(
-        signal_matches,
-        key=lambda x: x["probability"],
-        reverse=True
-    )
+                <div class="teams">
+                    {home} {home_goals}-{away_goals} {away}
+                </div>
 
-    # =====================================
-    # GÖSTER
-    # =====================================
-    for m in signal_matches:
+                <br>
 
-        st.markdown(f"""
-        <div class="match-card">
+                <span class="minute">
+                    ⏱️ {minute}'
+                </span>
 
-            <div class="league">
-                {m["league"]}
+                &nbsp;&nbsp;&nbsp;
+
+                <span class="{signal_class}">
+                    {signal}
+                </span>
+
+                &nbsp;&nbsp;&nbsp;
+
+                <span class="probability">
+                    %{probability}
+                </span>
+
             </div>
+            """
 
-            <div class="teams">
-                {m["home"]} {m["score"]} {m["away"]}
-            </div>
+            st.markdown(card, unsafe_allow_html=True)
 
-            <br>
+    st.caption(f"Son Güncelleme: {datetime.now().strftime('%H:%M:%S')}")
 
-            <span class="minute">
-                {m["minute"]}'
-            </span>
-
-            &nbsp;&nbsp;
-
-            <span class="{m["signal_class"]}">
-                {m["signal"]}
-            </span>
-
-            &nbsp;&nbsp;
-
-            <span class="probability">
-                %{m["probability"]}
-            </span>
-
-        </div>
-        """, unsafe_allow_html=True)
-
-# =====================================
-# FOOTER
-# =====================================
-st.markdown("---")
-
-st.caption(
-    f"Son Güncelleme: {datetime.now().strftime('%H:%M:%S')}"
-)
+except Exception as e:
+    st.error(f"Hata oluştu: {e}")

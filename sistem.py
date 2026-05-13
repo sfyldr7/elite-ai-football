@@ -1,4 +1,4 @@
-İmport requests
+import requests
 import time
 import sqlite3
 import threading

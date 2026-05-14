@@ -12,37 +12,47 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-body {
-    background-color:#050816;
+body{
+    background:#050816;
     color:white;
 }
+
 .big-title{
-    font-size:58px;
+    font-size:60px;
     font-weight:bold;
     color:white;
 }
+
 .box{
     background:#0b1225;
     padding:20px;
-    border-radius:15px;
+    border-radius:20px;
     margin-top:20px;
 }
+
 .green{
     color:#00ff88;
 }
+
 .red{
     color:#ff4d4d;
 }
-.yellow{
-    color:#ffd633;
-}
+
 .blue{
     color:#00bfff;
+}
+
+.yellow{
+    color:#ffd633;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="big-title">⚽ ELITE AI GÖRSEL MAÇ ANALİZİ</div>', unsafe_allow_html=True)
+st.markdown("""
+<div class="big-title">
+⚽ ELITE AI GÖRSEL MAÇ ANALİZİ
+</div>
+""", unsafe_allow_html=True)
 
 uploaded_files = st.file_uploader(
     "Maç ekran görüntüsü yükle",
@@ -79,14 +89,19 @@ if uploaded_files:
         text = pytesseract.image_to_string(
             gray,
             config=custom_config,
-            lang='eng'
+            lang='eng+tur'
         )
 
         all_text += text + "\n"
 
-    st.markdown("## 📋 OCR OKUNAN VERİLER")
+    st.markdown("""
+    <div class="box">
+    <h1 class="blue">📋 OCR ÇIKTISI</h1>
+    """, unsafe_allow_html=True)
 
     st.code(all_text)
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
     dakika = "0"
     skor = "0-0"
@@ -100,73 +115,95 @@ if uploaded_files:
     if skor_match:
         skor = skor_match.group(0)
 
-    tehlikeli_atak = 0
     atak = 0
-    korner = 0
+    tehlikeli_atak = 0
     topa_sahip = 50
+    korner = 0
 
-    sayilar = re.findall(r'\d+', all_text)
+    lines = all_text.splitlines()
 
-    if len(sayilar) >= 8:
-        try:
-            atak = int(sayilar[4])
-            tehlikeli_atak = int(sayilar[5])
-            topa_sahip = int(sayilar[6])
-            korner = int(sayilar[7])
-        except:
-            pass
+    for line in lines:
+
+        line_lower = line.lower()
+
+        nums = re.findall(r'\d+', line)
+
+        if (
+            "atak" in line_lower
+            and "tehlikeli" not in line_lower
+            and len(nums) >= 2
+        ):
+            atak = max([int(x) for x in nums])
+
+        if (
+            "tehlikeli" in line_lower
+            and len(nums) >= 2
+        ):
+            tehlikeli_atak = max([int(x) for x in nums])
+
+        if "%" in line_lower and len(nums) >= 2:
+            topa_sahip = max([int(x) for x in nums])
+
+        if "korner" in line_lower and len(nums) >= 1:
+            korner = max([int(x) for x in nums])
 
     st.markdown("""
     <div class="box">
-    <h1 class="blue">📊 OCR OKUNAN VERİLER</h1>
+    <h1 class="green">📊 OCR OKUNAN VERİLER</h1>
     """, unsafe_allow_html=True)
 
-    st.write(f"### Dakika: {dakika}")
-    st.write(f"### Skor: {skor}")
-    st.write(f"### Atak Gücü: {atak}")
-    st.write(f"### Tehlikeli Atak: {tehlikeli_atak}")
-    st.write(f"### Korner Baskısı: {korner}")
-    st.write(f"### Topa Sahip Olma: %{topa_sahip}")
+    st.write(f"### ⏱ Dakika: {dakika}")
+    st.write(f"### ⚽ Skor: {skor}")
+    st.write(f"### 🔥 Atak Gücü: {atak}")
+    st.write(f"### 🚨 Tehlikeli Atak: {tehlikeli_atak}")
+    st.write(f"### 🚩 Korner Baskısı: {korner}")
+    st.write(f"### 📈 Topa Sahip Olma: %{topa_sahip}")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("""
     <div class="box">
-    <h1 class="green">🤖 ELITE AI ANALİZ</h1>
+    <h1 class="yellow">🤖 ELITE AI TAHMİN</h1>
     """, unsafe_allow_html=True)
-
-    if tehlikeli_atak >= 10:
-        st.success("🔥 Çok yüksek baskı var. Gol ihtimali yükseliyor.")
-
-    elif tehlikeli_atak >= 5:
-        st.warning("⚠️ Baskı artıyor. Gol gelebilir.")
-
-    else:
-        st.info("⏳ Maç düşük tempoda gidiyor.")
-
-    if korner >= 5:
-        st.success("🚩 Korner baskısı yüksek.")
-
-    if topa_sahip >= 60:
-        st.success("⚽ Bir takım oyunu domine ediyor.")
 
     ev_gol = int(skor.split("-")[0])
     dep_gol = int(skor.split("-")[1])
 
     toplam_gol = ev_gol + dep_gol
 
-    st.markdown("## 🎯 YAPAY ZEKA TAHMİNLERİ")
+    if tehlikeli_atak >= 10:
+        st.success("🔥 Çok ciddi baskı var. Gol ihtimali yüksek.")
 
-    if toplam_gol == 0 and dakika < "25":
-        st.write("✅ İlk Yarı Alt 1.5 Mantıklı")
+    elif tehlikeli_atak >= 5:
+        st.warning("⚠️ Baskı yükseliyor. Gol gelebilir.")
+
+    else:
+        st.info("⏳ Maç düşük tempoda ilerliyor.")
+
+    if korner >= 5:
+        st.success("🚩 Korner üst için uygun tempo.")
+
+    if topa_sahip >= 60:
+        st.success("⚽ Bir takım oyunu domine ediyor.")
+
+    st.markdown("## 🎯 BAHİS ÖNERİLERİ")
+
+    if toplam_gol == 0 and int(dakika) < 25:
+        st.write("✅ İlk Yarı Alt 1.5")
 
     if tehlikeli_atak >= 8:
-        st.write("✅ KG VAR ihtimali yükseliyor")
+        st.write("✅ KG VAR değerlendirilebilir")
+
+    if toplam_gol <= 1 and int(dakika) < 35:
+        st.write("✅ Maç Sonu Üst 1.5 düşünülebilir")
 
     if korner >= 4:
-        st.write("✅ Korner Üst düşünülebilir")
+        st.write("✅ Korner Üst değerlendirilebilir")
 
     if topa_sahip >= 65 and tehlikeli_atak >= 8:
         st.write("✅ Baskılı takım gol bulabilir")
+
+    if tehlikeli_atak <= 3 and int(dakika) > 30:
+        st.write("✅ Alt seçenekleri mantıklı")
 
     st.markdown("</div>", unsafe_allow_html=True)

@@ -1,173 +1,213 @@
 import streamlit as st
 import requests
-from datetime import datetime
+import time
 
-st.set_page_config(page_title="ELITE AI", layout="wide")
+# =========================
+# SAYFA AYARLARI
+# =========================
+st.set_page_config(
+    page_title="ELITE AI",
+    layout="wide"
+)
 
-# ====== TASARIM ======
-
+# =========================
+# CSS TASARIM
+# =========================
 st.markdown("""
 <style>
-
-.main {
-    background-color: #0f172a;
+html, body, [class*="css"]{
+    background-color:#050816;
+    color:white;
 }
 
-body {
-    background-color: #0f172a;
+.main-title{
+    font-size:48px;
+    font-weight:bold;
+    color:white;
+    margin-bottom:25px;
 }
 
-.card {
-    background: #111827;
-    padding: 15px;
-    border-radius: 15px;
-    margin-bottom: 12px;
-    border-left: 5px solid #22c55e;
+.match-card{
+    background:#111827;
+    padding:18px;
+    border-radius:18px;
+    margin-bottom:14px;
+    border:1px solid #1f2937;
 }
 
-.league {
-    color: #38bdf8;
-    font-size: 16px;
-    font-weight: bold;
+.league{
+    color:#9ca3af;
+    font-size:14px;
+    margin-bottom:8px;
 }
 
-.teams {
-    color: white;
-    font-size: 24px;
-    font-weight: bold;
+.teams{
+    font-size:24px;
+    font-weight:bold;
+    color:white;
 }
 
-.info {
-    color: #d1d5db;
-    font-size: 18px;
-    margin-top: 8px;
+.minute{
+    color:#22c55e;
+    font-size:16px;
+    font-weight:bold;
 }
 
-.red {
-    color: #ef4444;
-    font-weight: bold;
+.signal-high{
+    color:#22c55e;
+    font-size:20px;
+    font-weight:bold;
 }
 
-.green {
-    color: #22c55e;
-    font-weight: bold;
+.signal-mid{
+    color:#facc15;
+    font-size:20px;
+    font-weight:bold;
 }
 
-.yellow {
-    color: #facc15;
-    font-weight: bold;
+.signal-low{
+    color:#ef4444;
+    font-size:20px;
+    font-weight:bold;
 }
 
-.gray {
-    color: #9ca3af;
-    font-weight: bold;
+.prob{
+    color:#38bdf8;
+    font-size:18px;
+    font-weight:bold;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ ELITE AI CANLI FUTBOL TERMINALI")
+# =========================
+# BAŞLIK
+# =========================
+st.markdown("""
+<div class="main-title">
+⚽ ELITE AI CANLI FUTBOL TERMINALI
+</div>
+""", unsafe_allow_html=True)
 
-# ====== API ======
-
+# =========================
+# API
+# =========================
 API_KEY = "2549da2ef45ba49efcd4b5ec65be1d7e"
+API_HOST = "api-football-v1.p.rapidapi.com"
 
-headers = {
-    "X-RapidAPI-Key": API_KEY,
-    "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
-}
-
-# ====== 5 DAKİKA CACHE ======
-
+# =========================
+# CACHE (5 DAKİKA)
+# =========================
 @st.cache_data(ttl=300)
 def maclari_getir():
 
     url = "https://api-football-v1.p.rapidapi.com/v3/fixtures?live=all"
 
-    response = requests.get(url, headers=headers)
+    headers = {
+        "X-RapidAPI-Key": API_KEY,
+        "X-RapidAPI-Host": API_HOST
+    }
+
+    response = requests.get(url, headers=headers, timeout=20)
+
+    if response.status_code != 200:
+        raise Exception(f"API Hatası: {response.status_code}")
 
     return response.json()
 
-# ====== VERİ ÇEK ======
+# =========================
+# ANALİZ
+# =========================
+def analiz_yap(home, away, minute, goals):
 
+    skor = goals["home"] + goals["away"]
+
+    ihtimal = 50
+    mesaj = "NORMAL"
+    css = "signal-low"
+
+    if minute >= 70 and skor <= 1:
+        ihtimal = 82
+        mesaj = "GOL YÜKSEK"
+        css = "signal-high"
+
+    elif minute >= 55 and skor <= 2:
+        ihtimal = 72
+        mesaj = "GOL OLABİLİR"
+        css = "signal-mid"
+
+    elif minute <= 20 and skor == 0:
+        ihtimal = 58
+        mesaj = "TEMKİNLİ"
+        css = "signal-low"
+
+    return mesaj, ihtimal, css
+
+# =========================
+# VERİ ÇEK
+# =========================
 try:
 
     data = maclari_getir()
 
-    matches = data["response"]
+    fixtures = data["response"]
 
-    if len(matches) == 0:
+    if len(fixtures) == 0:
         st.warning("Canlı maç bulunamadı.")
 
-    for match in matches:
+    for match in fixtures:
 
         league = match["league"]["name"]
 
         home = match["teams"]["home"]["name"]
         away = match["teams"]["away"]["name"]
 
-        home_goals = match["goals"]["home"]
-        away_goals = match["goals"]["away"]
+        home_goal = match["goals"]["home"] or 0
+        away_goal = match["goals"]["away"] or 0
 
-        minute = match["fixture"]["status"]["elapsed"]
+        minute = match["fixture"]["status"]["elapsed"] or 0
 
-        total_goals = (home_goals or 0) + (away_goals or 0)
+        mesaj, ihtimal, css = analiz_yap(
+            home,
+            away,
+            minute,
+            {
+                "home": home_goal,
+                "away": away_goal
+            }
+        )
 
-        signal = "⚪ NORMAL"
-        signal_class = "gray"
-        oran = 50
-
-        # ====== AI SİNYAL ======
-
-        if minute >= 70 and total_goals <= 1:
-            signal = "🔥 GOL YÜKSEK"
-            signal_class = "red"
-            oran = 88
-
-        elif minute >= 55 and total_goals >= 2:
-            signal = "🟢 ÜST OLUR"
-            signal_class = "green"
-            oran = 81
-
-        elif minute <= 25 and total_goals >= 1:
-            signal = "⚡ MAÇ HIZLI"
-            signal_class = "yellow"
-            oran = 73
-
-        elif minute >= 80:
-            signal = "🚨 SON DAKİKA"
-            signal_class = "red"
-            oran = 91
-
-        card = f"""
-        <div class="card">
+        st.markdown(f"""
+        <div class="match-card">
 
             <div class="league">
                 {league}
             </div>
 
+            <div class="teams">
+                {home} {home_goal}-{away_goal} {away}
+            </div>
+
             <br>
 
-            <div class="teams">
-                {home} {home_goals}-{away_goals} {away}
-            </div>
+            <span class="minute">
+                {minute}'
+            </span>
 
-            <div class="info">
-                ⏱️ {minute}'
-                   
-                <span class="{signal_class}">
-                    {signal}
-                </span>
-                   
-                %{oran}
-            </div>
+               
+
+            <span class="{css}">
+                ● {mesaj}
+            </span>
+
+               
+
+            <span class="prob">
+                %{ihtimal}
+            </span>
 
         </div>
-        """
+        """, unsafe_allow_html=True)
 
-        st.markdown(card, unsafe_allow_html=True)
+except Exception as e:
 
-    st.caption(f"Son Güncelleme: {datetime.now().strftime('%H:%M:%S')}")
-
-except:
-    st.error("API veya kod hatası oluştu.")
+    st.error(f"HATA: {e}")

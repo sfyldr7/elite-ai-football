@@ -1,4 +1,5 @@
 streamlit
-requests
-pandas
-plotly
+pillow
+pytesseract
+opencv-python-headless
+numpy

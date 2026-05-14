@@ -1,37 +1,37 @@
 import streamlit as st
 import requests
-import time
 
-# =========================
-# SAYFA AYARLARI
-# =========================
+# ======================================
+# SAYFA AYARI
+# ======================================
 st.set_page_config(
     page_title="ELITE AI",
     layout="wide"
 )
 
-# =========================
-# CSS TASARIM
-# =========================
+# ======================================
+# CSS
+# ======================================
 st.markdown("""
 <style>
+
 html, body, [class*="css"]{
     background-color:#050816;
     color:white;
 }
 
 .main-title{
-    font-size:48px;
-    font-weight:bold;
+    font-size:52px;
+    font-weight:900;
     color:white;
-    margin-bottom:25px;
+    margin-bottom:30px;
 }
 
 .match-card{
     background:#111827;
-    padding:18px;
-    border-radius:18px;
-    margin-bottom:14px;
+    padding:20px;
+    border-radius:20px;
+    margin-bottom:15px;
     border:1px solid #1f2937;
 }
 
@@ -55,19 +55,19 @@ html, body, [class*="css"]{
 
 .signal-high{
     color:#22c55e;
-    font-size:20px;
+    font-size:18px;
     font-weight:bold;
 }
 
 .signal-mid{
     color:#facc15;
-    font-size:20px;
+    font-size:18px;
     font-weight:bold;
 }
 
 .signal-low{
     color:#ef4444;
-    font-size:20px;
+    font-size:18px;
     font-weight:bold;
 }
 
@@ -76,35 +76,34 @@ html, body, [class*="css"]{
     font-size:18px;
     font-weight:bold;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
-# =========================
+# ======================================
 # BAŞLIK
-# =========================
+# ======================================
 st.markdown("""
 <div class="main-title">
 ⚽ ELITE AI CANLI FUTBOL TERMINALI
 </div>
 """, unsafe_allow_html=True)
 
-# =========================
-# API
-# =========================
-API_KEY = "2549da2ef45ba49efcd4b5ec65be1d7e"
-API_HOST = "api-football-v1.p.rapidapi.com"
+# ======================================
+# API KEY
+# ======================================
+API_KEY = "0a278e2125fc4eec7c0ac24ac276dabf"
 
-# =========================
+# ======================================
 # CACHE (5 DAKİKA)
-# =========================
+# ======================================
 @st.cache_data(ttl=300)
-def maclari_getir():
+def canli_maclar():
 
-    url = "https://api-football-v1.p.rapidapi.com/v3/fixtures?live=all"
+    url = "https://v3.football.api-sports.io/fixtures?live=all"
 
     headers = {
-        "X-RapidAPI-Key": API_KEY,
-        "X-RapidAPI-Host": API_HOST
+        "x-apisports-key": API_KEY
     }
 
     response = requests.get(url, headers=headers, timeout=20)
@@ -114,47 +113,47 @@ def maclari_getir():
 
     return response.json()
 
-# =========================
+# ======================================
 # ANALİZ
-# =========================
-def analiz_yap(home, away, minute, goals):
+# ======================================
+def analiz_yap(home_goal, away_goal, minute):
 
-    skor = goals["home"] + goals["away"]
+    total = home_goal + away_goal
 
-    ihtimal = 50
     mesaj = "NORMAL"
     css = "signal-low"
+    ihtimal = 50
 
-    if minute >= 70 and skor <= 1:
-        ihtimal = 82
+    if minute >= 70 and total <= 1:
         mesaj = "GOL YÜKSEK"
         css = "signal-high"
+        ihtimal = 84
 
-    elif minute >= 55 and skor <= 2:
-        ihtimal = 72
+    elif minute >= 55 and total <= 2:
         mesaj = "GOL OLABİLİR"
         css = "signal-mid"
+        ihtimal = 72
 
-    elif minute <= 20 and skor == 0:
-        ihtimal = 58
+    elif minute <= 20 and total == 0:
         mesaj = "TEMKİNLİ"
         css = "signal-low"
+        ihtimal = 58
 
-    return mesaj, ihtimal, css
+    return mesaj, css, ihtimal
 
-# =========================
+# ======================================
 # VERİ ÇEK
-# =========================
+# ======================================
 try:
 
-    data = maclari_getir()
+    data = canli_maclar()
 
-    fixtures = data["response"]
+    matches = data["response"]
 
-    if len(fixtures) == 0:
-        st.warning("Canlı maç bulunamadı.")
+    if len(matches) == 0:
+        st.warning("Şu anda canlı maç yok.")
 
-    for match in fixtures:
+    for match in matches:
 
         league = match["league"]["name"]
 
@@ -166,14 +165,10 @@ try:
 
         minute = match["fixture"]["status"]["elapsed"] or 0
 
-        mesaj, ihtimal, css = analiz_yap(
-            home,
-            away,
-            minute,
-            {
-                "home": home_goal,
-                "away": away_goal
-            }
+        mesaj, css, ihtimal = analiz_yap(
+            home_goal,
+            away_goal,
+            minute
         )
 
         st.markdown(f"""

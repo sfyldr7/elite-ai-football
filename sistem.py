@@ -5,17 +5,19 @@ import cv2
 import numpy as np
 import re
 
-# ==========================================
+# ======================================
 # SAYFA
-# ==========================================
+# ======================================
+
 st.set_page_config(
     page_title="ELITE AI",
     layout="wide"
 )
 
-# ==========================================
+# ======================================
 # CSS
-# ==========================================
+# ======================================
+
 st.markdown("""
 <style>
 
@@ -25,14 +27,14 @@ html, body, [class*="css"]{
 }
 
 .main-title{
-    font-size:52px;
+    font-size:58px;
     font-weight:900;
-    margin-bottom:25px;
+    margin-bottom:20px;
 }
 
 .card{
     background:#111827;
-    padding:20px;
+    padding:22px;
     border-radius:20px;
     margin-top:20px;
     border:1px solid #1f2937;
@@ -40,65 +42,70 @@ html, body, [class*="css"]{
 
 .green{
     color:#22c55e;
-    font-size:24px;
+    font-size:28px;
     font-weight:bold;
 }
 
 .yellow{
     color:#facc15;
-    font-size:24px;
+    font-size:28px;
     font-weight:bold;
 }
 
 .red{
     color:#ef4444;
-    font-size:24px;
+    font-size:28px;
     font-weight:bold;
 }
 
 .blue{
     color:#38bdf8;
-    font-size:22px;
+    font-size:26px;
     font-weight:bold;
 }
 
 .info{
-    font-size:20px;
+    font-size:22px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
+# ======================================
 # BAŞLIK
-# ==========================================
+# ======================================
+
 st.markdown("""
 <div class="main-title">
 ⚽ ELITE AI GÖRSEL MAÇ ANALİZİ
 </div>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# FOTOĞRAF YÜKLE
-# ==========================================
+# ======================================
+# ÇOKLU FOTO
+# ======================================
+
 uploaded = st.file_uploader(
     "Maç ekran görüntüsü yükle",
-    type=["png","jpg","jpeg"]
+    type=["png","jpg","jpeg"],
+    accept_multiple_files=True
 )
 
-# ==========================================
-# OCR TEMİZLE
-# ==========================================
+# ======================================
+# TEMİZLE
+# ======================================
+
 def temizle(text):
 
-    text = text.replace("\n"," ")
-    text = text.replace("%"," ")
+    text = text.replace("\n", " ")
+    text = text.replace("%", " ")
 
     return text
 
-# ==========================================
-# DAKİKA
-# ==========================================
+# ======================================
+# DAKİKA BUL
+# ======================================
+
 def dakika_bul(text):
 
     match = re.search(r"(\\d{1,2})'", text)
@@ -108,9 +115,10 @@ def dakika_bul(text):
 
     return 0
 
-# ==========================================
-# SKOR
-# ==========================================
+# ======================================
+# SKOR BUL
+# ======================================
+
 def skor_bul(text):
 
     match = re.search(r"(\\d+)\\s*-\\s*(\\d+)", text)
@@ -120,10 +128,11 @@ def skor_bul(text):
 
     return 0,0
 
-# ==========================================
-# SAYI BUL
-# ==========================================
-def sayilari_bul(text):
+# ======================================
+# SAYILARI BUL
+# ======================================
+
+def sayilar(text):
 
     nums = re.findall(r'\\d+', text)
 
@@ -138,9 +147,10 @@ def sayilari_bul(text):
 
     return temiz
 
-# ==========================================
+# ======================================
 # ANALİZ MOTORU
-# ==========================================
+# ======================================
+
 def analiz(
     dk,
     home_goal,
@@ -154,15 +164,13 @@ def analiz(
 
     sonuc = {}
 
-    # ======================================
-    # GOL ANALİZİ
-    # ======================================
+    # GOL
     if dangerous >= 20:
 
         sonuc["gol"] = (
-            "🔥 GOL BASKISI YÜKSEK",
+            "🔥 GOL BASKISI ÇOK YÜKSEK",
             "green",
-            84
+            87
         )
 
     elif dangerous >= 10:
@@ -170,7 +178,7 @@ def analiz(
         sonuc["gol"] = (
             "⚠️ GOL OLABİLİR",
             "yellow",
-            67
+            66
         )
 
     else:
@@ -178,18 +186,16 @@ def analiz(
         sonuc["gol"] = (
             "❄️ DÜŞÜK TEMPO",
             "red",
-            39
+            35
         )
 
-    # ======================================
-    # KG VAR
-    # ======================================
+    # KG
     if attacks >= 30 and toplam >= 1:
 
         sonuc["kg"] = (
             "✅ KG VAR YAKIN",
             "green",
-            73
+            74
         )
 
     else:
@@ -197,37 +203,33 @@ def analiz(
         sonuc["kg"] = (
             "❌ KG YOK YAKIN",
             "red",
-            44
+            46
         )
 
-    # ======================================
-    # İLK YARI ÜST
-    # ======================================
-    if dk <= 35 and dangerous >= 18:
+    # İLK YARI
+    if dk <= 35 and dangerous >= 15:
 
-        sonuc["iy_ust"] = (
+        sonuc["iy"] = (
             "🚀 İY 0.5 ÜST GÜÇLÜ",
             "green",
-            79
+            81
         )
 
     else:
 
-        sonuc["iy_ust"] = (
-            "⚠️ İY ALT DAHA YAKIN",
+        sonuc["iy"] = (
+            "⚠️ İY ALT YAKIN",
             "yellow",
-            55
+            58
         )
 
-    # ======================================
     # KORNER
-    # ======================================
     if corners >= 6:
 
         sonuc["korner"] = (
             "📐 KORNER BASKISI VAR",
             "green",
-            81
+            79
         )
 
     else:
@@ -235,187 +237,202 @@ def analiz(
         sonuc["korner"] = (
             "📐 NORMAL KORNER",
             "yellow",
-            52
+            50
         )
 
     return sonuc
 
-# ==========================================
-# FOTO GELDİYSE
-# ==========================================
+# ======================================
+# FOTOĞRAFLAR
+# ======================================
+
 if uploaded:
 
-    image = Image.open(uploaded)
+    for file in uploaded:
 
-    st.image(image, use_container_width=True)
+        st.markdown("---")
 
-    img_np = np.array(image)
+        image = Image.open(file)
 
-    gray = cv2.cvtColor(
-        img_np,
-        cv2.COLOR_BGR2GRAY
-    )
+        st.image(
+            image,
+            use_container_width=True
+        )
 
-    text = pytesseract.image_to_string(gray)
+        img_np = np.array(image)
 
-    text = temizle(text)
+        gray = cv2.cvtColor(
+            img_np,
+            cv2.COLOR_BGR2GRAY
+        )
 
-    # ======================================
-    # OCR
-    # ======================================
-    dk = dakika_bul(text)
+        text = pytesseract.image_to_string(gray)
 
-    home_goal, away_goal = skor_bul(text)
+        text = temizle(text)
 
-    nums = sayilari_bul(text)
+        # ==================================
+        # OCR
+        # ==================================
 
-    # ======================================
-    # SAHTE OCR AYIKLAMA
-    # ======================================
-    attacks = max(nums) if len(nums) > 0 else 0
+        dk = dakika_bul(text)
 
-    dangerous = nums[-2] if len(nums) >= 2 else 0
+        home_goal, away_goal = skor_bul(text)
 
-    corners = nums[-3] if len(nums) >= 3 else 0
+        nums = sayilar(text)
 
-    # ======================================
-    # ANALİZ
-    # ======================================
-    sonuc = analiz(
-        dk,
-        home_goal,
-        away_goal,
-        attacks,
-        dangerous,
-        corners
-    )
+        attacks = max(nums) if len(nums) > 0 else 0
 
-    # ======================================
-    # OKUNAN VERİLER
-    # ======================================
-    st.markdown("""
-    <div class="card">
-    """, unsafe_allow_html=True)
+        dangerous = nums[-2] if len(nums) >= 2 else 0
 
-    st.markdown("""
-    <div class="blue">
-    📊 OCR OKUNAN VERİLER
-    </div>
-    """, unsafe_allow_html=True)
+        corners = nums[-3] if len(nums) >= 3 else 0
 
-    st.write(f"Dakika: {dk}")
-    st.write(f"Skor: {home_goal}-{away_goal}")
-    st.write(f"Atak Skoru: {attacks}")
-    st.write(f"Tehlikeli Atak: {dangerous}")
-    st.write(f"Korner Baskısı: {corners}")
+        # ==================================
+        # ANALİZ
+        # ==================================
 
-    st.markdown("</div>", unsafe_allow_html=True)
+        sonuc = analiz(
+            dk,
+            home_goal,
+            away_goal,
+            attacks,
+            dangerous,
+            corners
+        )
 
-    # ======================================
-    # GOL ANALİZİ
-    # ======================================
-    gol_text, gol_css, gol_prob = sonuc["gol"]
+        # ==================================
+        # OCR VERİ
+        # ==================================
 
-    st.markdown(f"""
-    <div class="card">
-        <div class="{gol_css}">
-            {gol_text}
+        st.markdown("""
+        <div class="card">
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="blue">
+        📊 OCR OKUNAN VERİLER
         </div>
+        """, unsafe_allow_html=True)
 
-        <br>
+        st.write(f"Dakika: {dk}")
+        st.write(f"Skor: {home_goal}-{away_goal}")
+        st.write(f"Atak Gücü: {attacks}")
+        st.write(f"Tehlikeli Atak: {dangerous}")
+        st.write(f"Korner Baskısı: {corners}")
 
-        <div class="info">
-            Gol ihtimali: %{gol_prob}
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ==================================
+        # GOL
+        # ==================================
+
+        gol_text, gol_css, gol_prob = sonuc["gol"]
+
+        st.markdown(f"""
+        <div class="card">
+            <div class="{gol_css}">
+                {gol_text}
+            </div>
+
+            <br>
+
+            <div class="info">
+                Gol ihtimali: %{gol_prob}
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    # ======================================
-    # KG
-    # ======================================
-    kg_text, kg_css, kg_prob = sonuc["kg"]
+        # ==================================
+        # KG
+        # ==================================
 
-    st.markdown(f"""
-    <div class="card">
-        <div class="{kg_css}">
-            {kg_text}
+        kg_text, kg_css, kg_prob = sonuc["kg"]
+
+        st.markdown(f"""
+        <div class="card">
+            <div class="{kg_css}">
+                {kg_text}
+            </div>
+
+            <br>
+
+            <div class="info">
+                KG ihtimali: %{kg_prob}
+            </div>
         </div>
+        """, unsafe_allow_html=True)
 
-        <br>
+        # ==================================
+        # İY
+        # ==================================
 
-        <div class="info">
-            KG olasılığı: %{kg_prob}
+        iy_text, iy_css, iy_prob = sonuc["iy"]
+
+        st.markdown(f"""
+        <div class="card">
+            <div class="{iy_css}">
+                {iy_text}
+            </div>
+
+            <br>
+
+            <div class="info">
+                İlk yarı ihtimali: %{iy_prob}
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    # ======================================
-    # İLK YARI
-    # ======================================
-    iy_text, iy_css, iy_prob = sonuc["iy_ust"]
+        # ==================================
+        # KORNER
+        # ==================================
 
-    st.markdown(f"""
-    <div class="card">
-        <div class="{iy_css}">
-            {iy_text}
+        kor_text, kor_css, kor_prob = sonuc["korner"]
+
+        st.markdown(f"""
+        <div class="card">
+            <div class="{kor_css}">
+                {kor_text}
+            </div>
+
+            <br>
+
+            <div class="info">
+                Korner ihtimali: %{kor_prob}
+            </div>
         </div>
+        """, unsafe_allow_html=True)
 
-        <br>
+        # ==================================
+        # OTOMATİK KUPON
+        # ==================================
 
-        <div class="info">
-            İlk yarı olasılığı: %{iy_prob}
+        st.markdown("""
+        <div class="card">
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="blue">
+        🎯 OTOMATİK KUPON
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    # ======================================
-    # KORNER
-    # ======================================
-    kor_text, kor_css, kor_prob = sonuc["korner"]
+        if gol_prob >= 80:
+            st.success("CANLI GOL")
 
-    st.markdown(f"""
-    <div class="card">
-        <div class="{kor_css}">
-            {kor_text}
-        </div>
+        if kg_prob >= 70:
+            st.success("KG VAR")
 
-        <br>
+        if iy_prob >= 75:
+            st.success("İY 0.5 ÜST")
 
-        <div class="info">
-            Korner ihtimali: %{kor_prob}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        if kor_prob >= 75:
+            st.success("KORNER ÜST")
 
-    # ======================================
-    # OTOMATİK KUPON
-    # ======================================
-    st.markdown("""
-    <div class="card">
-    """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("""
-    <div class="blue">
-    🎯 OTOMATİK KUPON
-    </div>
-    """, unsafe_allow_html=True)
+        # ==================================
+        # OCR HAM VERİ
+        # ==================================
 
-    if gol_prob >= 80:
-        st.success("CANLI GOL")
+        with st.expander("OCR HAM VERİ"):
 
-    if kg_prob >= 70:
-        st.success("KG VAR")
-
-    if iy_prob >= 75:
-        st.success("İY 0.5 ÜST")
-
-    if kor_prob >= 75:
-        st.success("KORNER ÜST")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # ======================================
-    # HAM OCR
-    # ======================================
-    with st.expander("OCR HAM VERİ"):
-        st.write(text)
+            st.write(text)

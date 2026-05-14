@@ -1,208 +1,421 @@
 import streamlit as st
-import requests
+from PIL import Image
+import pytesseract
+import cv2
+import numpy as np
+import re
 
-# ======================================
-# SAYFA AYARI
-# ======================================
+# ==========================================
+# SAYFA
+# ==========================================
 st.set_page_config(
     page_title="ELITE AI",
     layout="wide"
 )
 
-# ======================================
+# ==========================================
 # CSS
-# ======================================
+# ==========================================
 st.markdown("""
 <style>
 
 html, body, [class*="css"]{
-    background-color:#050816;
+    background:#050816;
     color:white;
 }
 
 .main-title{
     font-size:52px;
     font-weight:900;
-    color:white;
-    margin-bottom:30px;
+    margin-bottom:25px;
 }
 
-.match-card{
+.card{
     background:#111827;
     padding:20px;
     border-radius:20px;
-    margin-bottom:15px;
+    margin-top:20px;
     border:1px solid #1f2937;
 }
 
-.league{
-    color:#9ca3af;
-    font-size:14px;
-    margin-bottom:8px;
-}
-
-.teams{
+.green{
+    color:#22c55e;
     font-size:24px;
     font-weight:bold;
-    color:white;
 }
 
-.minute{
-    color:#22c55e;
-    font-size:16px;
-    font-weight:bold;
-}
-
-.signal-high{
-    color:#22c55e;
-    font-size:18px;
-    font-weight:bold;
-}
-
-.signal-mid{
+.yellow{
     color:#facc15;
-    font-size:18px;
+    font-size:24px;
     font-weight:bold;
 }
 
-.signal-low{
+.red{
     color:#ef4444;
-    font-size:18px;
+    font-size:24px;
     font-weight:bold;
 }
 
-.prob{
+.blue{
     color:#38bdf8;
-    font-size:18px;
+    font-size:22px;
     font-weight:bold;
+}
+
+.info{
+    font-size:20px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ======================================
+# ==========================================
 # BAŞLIK
-# ======================================
+# ==========================================
 st.markdown("""
 <div class="main-title">
-⚽ ELITE AI CANLI FUTBOL TERMINALI
+⚽ ELITE AI GÖRSEL MAÇ ANALİZİ
 </div>
 """, unsafe_allow_html=True)
 
-# ======================================
-# API KEY
-# ======================================
-API_KEY = "0a278e2125fc4eec7c0ac24ac276dabf"
+# ==========================================
+# FOTOĞRAF YÜKLE
+# ==========================================
+uploaded = st.file_uploader(
+    "Maç ekran görüntüsü yükle",
+    type=["png","jpg","jpeg"]
+)
 
-# ======================================
-# CACHE (5 DAKİKA)
-# ======================================
-@st.cache_data(ttl=300)
-def canli_maclar():
+# ==========================================
+# OCR TEMİZLE
+# ==========================================
+def temizle(text):
 
-    url = "https://v3.football.api-sports.io/fixtures?live=all"
+    text = text.replace("\n"," ")
+    text = text.replace("%"," ")
 
-    headers = {
-        "x-apisports-key": API_KEY
-    }
+    return text
 
-    response = requests.get(url, headers=headers, timeout=20)
+# ==========================================
+# DAKİKA
+# ==========================================
+def dakika_bul(text):
 
-    if response.status_code != 200:
-        raise Exception(f"API Hatası: {response.status_code}")
+    match = re.search(r"(\\d{1,2})'", text)
 
-    return response.json()
+    if match:
+        return int(match.group(1))
 
-# ======================================
-# ANALİZ
-# ======================================
-def analiz_yap(home_goal, away_goal, minute):
+    return 0
 
-    total = home_goal + away_goal
+# ==========================================
+# SKOR
+# ==========================================
+def skor_bul(text):
 
-    mesaj = "NORMAL"
-    css = "signal-low"
-    ihtimal = 50
+    match = re.search(r"(\\d+)\\s*-\\s*(\\d+)", text)
 
-    if minute >= 70 and total <= 1:
-        mesaj = "GOL YÜKSEK"
-        css = "signal-high"
-        ihtimal = 84
+    if match:
+        return int(match.group(1)), int(match.group(2))
 
-    elif minute >= 55 and total <= 2:
-        mesaj = "GOL OLABİLİR"
-        css = "signal-mid"
-        ihtimal = 72
+    return 0,0
 
-    elif minute <= 20 and total == 0:
-        mesaj = "TEMKİNLİ"
-        css = "signal-low"
-        ihtimal = 58
+# ==========================================
+# SAYI BUL
+# ==========================================
+def sayilari_bul(text):
 
-    return mesaj, css, ihtimal
+    nums = re.findall(r'\\d+', text)
 
-# ======================================
-# VERİ ÇEK
-# ======================================
-try:
+    temiz = []
 
-    data = canli_maclar()
+    for n in nums:
 
-    matches = data["response"]
+        try:
+            temiz.append(int(n))
+        except:
+            pass
 
-    if len(matches) == 0:
-        st.warning("Şu anda canlı maç yok.")
+    return temiz
 
-    for match in matches:
+# ==========================================
+# ANALİZ MOTORU
+# ==========================================
+def analiz(
+    dk,
+    home_goal,
+    away_goal,
+    attacks,
+    dangerous,
+    corners
+):
 
-        league = match["league"]["name"]
+    toplam = home_goal + away_goal
 
-        home = match["teams"]["home"]["name"]
-        away = match["teams"]["away"]["name"]
+    sonuc = {}
 
-        home_goal = match["goals"]["home"] or 0
-        away_goal = match["goals"]["away"] or 0
+    # ======================================
+    # GOL ANALİZİ
+    # ======================================
+    if dangerous >= 20:
 
-        minute = match["fixture"]["status"]["elapsed"] or 0
-
-        mesaj, css, ihtimal = analiz_yap(
-            home_goal,
-            away_goal,
-            minute
+        sonuc["gol"] = (
+            "🔥 GOL BASKISI YÜKSEK",
+            "green",
+            84
         )
 
-        st.markdown(f"""
-        <div class="match-card">
+    elif dangerous >= 10:
 
-            <div class="league">
-                {league}
-            </div>
+        sonuc["gol"] = (
+            "⚠️ GOL OLABİLİR",
+            "yellow",
+            67
+        )
 
-            <div class="teams">
-                {home} {home_goal}-{away_goal} {away}
-            </div>
+    else:
 
-            <br>
+        sonuc["gol"] = (
+            "❄️ DÜŞÜK TEMPO",
+            "red",
+            39
+        )
 
-            <span class="minute">
-                {minute}'
-            </span>
+    # ======================================
+    # KG VAR
+    # ======================================
+    if attacks >= 30 and toplam >= 1:
 
-               
+        sonuc["kg"] = (
+            "✅ KG VAR YAKIN",
+            "green",
+            73
+        )
 
-            <span class="{css}">
-                ● {mesaj}
-            </span>
+    else:
 
-               
+        sonuc["kg"] = (
+            "❌ KG YOK YAKIN",
+            "red",
+            44
+        )
 
-            <span class="prob">
-                %{ihtimal}
-            </span>
+    # ======================================
+    # İLK YARI ÜST
+    # ======================================
+    if dk <= 35 and dangerous >= 18:
 
+        sonuc["iy_ust"] = (
+            "🚀 İY 0.5 ÜST GÜÇLÜ",
+            "green",
+            79
+        )
+
+    else:
+
+        sonuc["iy_ust"] = (
+            "⚠️ İY ALT DAHA YAKIN",
+            "yellow",
+            55
+        )
+
+    # ======================================
+    # KORNER
+    # ======================================
+    if corners >= 6:
+
+        sonuc["korner"] = (
+            "📐 KORNER BASKISI VAR",
+            "green",
+            81
+        )
+
+    else:
+
+        sonuc["korner"] = (
+            "📐 NORMAL KORNER",
+            "yellow",
+            52
+        )
+
+    return sonuc
+
+# ==========================================
+# FOTO GELDİYSE
+# ==========================================
+if uploaded:
+
+    image = Image.open(uploaded)
+
+    st.image(image, use_container_width=True)
+
+    img_np = np.array(image)
+
+    gray = cv2.cvtColor(
+        img_np,
+        cv2.COLOR_BGR2GRAY
+    )
+
+    text = pytesseract.image_to_string(gray)
+
+    text = temizle(text)
+
+    # ======================================
+    # OCR
+    # ======================================
+    dk = dakika_bul(text)
+
+    home_goal, away_goal = skor_bul(text)
+
+    nums = sayilari_bul(text)
+
+    # ======================================
+    # SAHTE OCR AYIKLAMA
+    # ======================================
+    attacks = max(nums) if len(nums) > 0 else 0
+
+    dangerous = nums[-2] if len(nums) >= 2 else 0
+
+    corners = nums[-3] if len(nums) >= 3 else 0
+
+    # ======================================
+    # ANALİZ
+    # ======================================
+    sonuc = analiz(
+        dk,
+        home_goal,
+        away_goal,
+        attacks,
+        dangerous,
+        corners
+    )
+
+    # ======================================
+    # OKUNAN VERİLER
+    # ======================================
+    st.markdown("""
+    <div class="card">
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="blue">
+    📊 OCR OKUNAN VERİLER
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.write(f"Dakika: {dk}")
+    st.write(f"Skor: {home_goal}-{away_goal}")
+    st.write(f"Atak Skoru: {attacks}")
+    st.write(f"Tehlikeli Atak: {dangerous}")
+    st.write(f"Korner Baskısı: {corners}")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ======================================
+    # GOL ANALİZİ
+    # ======================================
+    gol_text, gol_css, gol_prob = sonuc["gol"]
+
+    st.markdown(f"""
+    <div class="card">
+        <div class="{gol_css}">
+            {gol_text}
         </div>
-        """, unsafe_allow_html=True)
 
-except Exception as e:
+        <br>
 
-    st.error(f"HATA: {e}")
+        <div class="info">
+            Gol ihtimali: %{gol_prob}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ======================================
+    # KG
+    # ======================================
+    kg_text, kg_css, kg_prob = sonuc["kg"]
+
+    st.markdown(f"""
+    <div class="card">
+        <div class="{kg_css}">
+            {kg_text}
+        </div>
+
+        <br>
+
+        <div class="info">
+            KG olasılığı: %{kg_prob}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ======================================
+    # İLK YARI
+    # ======================================
+    iy_text, iy_css, iy_prob = sonuc["iy_ust"]
+
+    st.markdown(f"""
+    <div class="card">
+        <div class="{iy_css}">
+            {iy_text}
+        </div>
+
+        <br>
+
+        <div class="info">
+            İlk yarı olasılığı: %{iy_prob}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ======================================
+    # KORNER
+    # ======================================
+    kor_text, kor_css, kor_prob = sonuc["korner"]
+
+    st.markdown(f"""
+    <div class="card">
+        <div class="{kor_css}">
+            {kor_text}
+        </div>
+
+        <br>
+
+        <div class="info">
+            Korner ihtimali: %{kor_prob}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ======================================
+    # OTOMATİK KUPON
+    # ======================================
+    st.markdown("""
+    <div class="card">
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="blue">
+    🎯 OTOMATİK KUPON
+    </div>
+    """, unsafe_allow_html=True)
+
+    if gol_prob >= 80:
+        st.success("CANLI GOL")
+
+    if kg_prob >= 70:
+        st.success("KG VAR")
+
+    if iy_prob >= 75:
+        st.success("İY 0.5 ÜST")
+
+    if kor_prob >= 75:
+        st.success("KORNER ÜST")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ======================================
+    # HAM OCR
+    # ======================================
+    with st.expander("OCR HAM VERİ"):
+        st.write(text)

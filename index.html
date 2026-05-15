@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yapay Zeka Tahmin Motoru v3.0</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e14;
+    --card: #11161e;
+    --card-border: #1e2530;
+    --accent-green: #2dd4a7;
+    --accent-blue: #4a8eff;
+    --text: #e6edf3;
+    --text-dim: #6b7785;
+    --text-muted: #8b96a5;
+    --fire: #ff6b35;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(45, 212, 167, 0.1), rgba(74, 142, 255, 0.05));
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    margin-bottom: 20px;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .header-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--accent-green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 900;
+    color: #0a0e14;
+  }
+
+  .header-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  .status-card {
+    max-width: 900px;
+    margin: 0 auto 20px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .status-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .pulse-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 0 0 var(--accent-green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(45, 212, 167, 0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(45, 212, 167, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(45, 212, 167, 0); }
+  }
+
+  .status-info { text-align: center; flex: 1; }
+  .status-label { font-size: 11px; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 6px; }
+  .status-value { color: var(--accent-green); font-weight: 700; font-size: 15px; letter-spacing: 1px; }
+
+  .status-time {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .refresh-icon { animation: spin 4s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .section-title {
+    max-width: 900px;
+    margin: 30px auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .section-title-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .lightning {
+    color: #facc15;
+    font-size: 24px;
+    filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.5));
+  }
+
+  .match-count {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .matches { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+  .match {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px 24px;
+    transition: all 0.3s ease;
+  }
+
+  .match.fire { border-color: rgba(255, 107, 53, 0.4); box-shadow: 0 0 30px rgba(255, 107, 53, 0.08); }
+  .match.hot { border-color: rgba(45, 212, 167, 0.3); }
+
+  .match-header {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+
+  .minute-badge {
+    background: var(--card-border);
+    border-radius: 12px;
+    padding: 12px 8px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--accent-green);
+  }
+
+  .teams { display: flex; flex-direction: column; gap: 6px; }
+  .team-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .team-name { font-size: 17px; font-weight: 700; }
+  .team-name.dim { color: var(--text-dim); }
+  .score { font-size: 20px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+  .score.dim { color: var(--text-dim); }
+
+  .analyze-tag {
+    background: rgba(74, 142, 255, 0.1);
+    border: 1px solid rgba(74, 142, 255, 0.2);
+    color: var(--accent-blue);
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+
+  .analyze-tag.done {
+    background: rgba(45, 212, 167, 0.1);
+    border-color: rgba(45, 212, 167, 0.2);
+    color: var(--accent-green);
+  }
+
+  .momentum-section { padding-top: 14px; border-top: 1px solid var(--card-border); }
+
+  .momentum-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .momentum-label { color: var(--text-dim); font-size: 12px; letter-spacing: 1.5px; }
+  .momentum-values { color: var(--accent-green); font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; }
+
+  .momentum-bar {
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    background: var(--card-border);
+  }
+
+  .momentum-home { background: var(--accent-green); transition: width 0.6s ease; }
+  .momentum-away { background: var(--accent-blue); transition: width 0.6s ease; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    margin-top: 12px;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .stats-row span { font-weight: 600; }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--card-border);
+  }
+
+  .metric { text-align: center; }
+  .metric-label { color: var(--text-dim); font-size: 11px; letter-spacing: 1.5px; margin-bottom: 8px; }
+  .metric-value { font-size: 28px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+  .metric-value.green { color: var(--accent-green); }
+  .metric-value.white { color: var(--text); }
+
+  .heat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--card-border);
+    font-size: 22px;
+  }
+  .heat-icon.fire { background: rgba(255, 107, 53, 0.15); }
+  .heat-icon.fire::after { content: "🔥"; animation: shake 1.5s ease infinite; }
+  .heat-icon.hot::after { content: "🔥"; opacity: 0.7; }
+  .heat-icon.warm::after { content: "🔥"; opacity: 0.4; }
+  .heat-icon.cold::after { content: "🔥"; opacity: 0.2; filter: grayscale(1); }
+
+  @keyframes shake {
+    0%, 100% { transform: rotate(-3deg) scale(1); }
+    50% { transform: rotate(3deg) scale(1.1); }
+  }
+
+  .empty-state {
+    max-width: 900px;
+    margin: 60px auto;
+    text-align: center;
+    padding: 60px 30px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+  }
+
+  .empty-state-icon { font-size: 60px; margin-bottom: 16px; opacity: 0.4; }
+  .empty-state-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .empty-state-text { color: var(--text-muted); }
+
+  .loading {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--card-border);
+    border-top-color: var(--accent-green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    .match-header { grid-template-columns: 60px 1fr; }
+    .analyze-tag { grid-column: 1 / -1; justify-self: end; }
+    .team-name { font-size: 15px; }
+    .metric-value { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-icon">⚡</div>
+    <div class="header-title">Yapay Zeka Tahmin Motoru v3.0</div>
+  </div>
+
+  <div class="status-card">
+    <div class="status-left">
+      <div class="pulse-dot"></div>
+    </div>
+    <div class="status-info">
+      <div class="status-label">SİSTEM DURUMU</div>
+      <div class="status-value">CANLI VERİ İŞLENİYOR</div>
+    </div>
+    <div class="status-time">
+      <span class="refresh-icon">↻</span>
+      <span id="time">--:--:--</span>
+    </div>
+  </div>
+
+  <div class="section-title">
+    <div class="section-title-left">
+      <span class="lightning">⚡</span>
+      <span>Canlı Analizler</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div class="match-count" id="nextRefresh" style="font-family:'JetBrains Mono',monospace;">⏱ --:--</div>
+      <div class="match-count" id="matchCount"><span class="loading"></span> Yükleniyor...</div>
+    </div>
+  </div>
+
+  <div class="matches" id="matches"></div>
+
+<script>
+const REFRESH_INTERVAL = 600000; // 10 dakika (600 saniye)
+let nextRefreshAt = Date.now() + REFRESH_INTERVAL;
+
+function pad(n) { return n.toString().padStart(2, '0'); }
+
+function updateTime() {
+  const d = new Date();
+  document.getElementById('time').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+function renderMatch(m) {
+  return `
+    <div class="match ${m.heat}">
+      <div class="match-header">
+        <div class="minute-badge">${m.minute}'</div>
+        <div class="teams">
+          <div class="team-row">
+            <div class="team-name">${m.home_team}</div>
+            <div class="score">${m.home_score}</div>
+          </div>
+          <div class="team-row">
+            <div class="team-name dim">${m.away_team}</div>
+            <div class="score dim">${m.away_score}</div>
+          </div>
+        </div>
+        <div class="analyze-tag ${m.guven_skoru > 0 ? 'done' : ''}">
+          ${m.guven_skoru > 0 ? 'ANALİZ HAZIR' : 'ANALİZ EDİLİYOR...'}
+        </div>
+      </div>
+
+      <div class="momentum-section">
+        <div class="momentum-header">
+          <div class="momentum-label">MOMENTUM ŞİDDETİ</div>
+          <div class="momentum-values">${m.home_momentum} - ${m.away_momentum}</div>
+        </div>
+        <div class="momentum-bar">
+          <div class="momentum-home" style="width: ${m.home_pct}%"></div>
+          <div class="momentum-away" style="width: ${m.away_pct}%"></div>
+        </div>
+        <div class="stats-row">
+          <div>İSABETLİ: <span>${m.home_isabetli}</span></div>
+          <div>TEHLİKE: <span>${m.home_tehlike}</span></div>
+          <div>İSABETLİ: <span>${m.away_isabetli}</span></div>
+          <div>TEHLİKE: <span>${m.away_tehlike}</span></div>
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">GOL OLASILIĞI</div>
+          <div class="metric-value green">%${m.gol_olasiligi}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">GÜVEN SKORU</div>
+          <div class="metric-value white">${m.guven_skoru.toFixed(1)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">ISI</div>
+          <div style="display:flex;justify-content:center;margin-top:4px;">
+            <div class="heat-icon ${m.heat}"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function fetchLive() {
+  try {
+    const response = await fetch('/api/live');
+    const data = await response.json();
+    nextRefreshAt = Date.now() + REFRESH_INTERVAL; // sayacı sıfırla
+
+    const matches = data.matches || [];
+    document.getElementById('matchCount').textContent = `${matches.length} Maç Bulundu`;
+
+    const container = document.getElementById('matches');
+
+    if (matches.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⚽</div>
+          <div class="empty-state-title">Şu an canlı maç yok</div>
+          <div class="empty-state-text">Yeni maçlar başladığında otomatik olarak burada görünecek.</div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = matches.map(renderMatch).join('');
+    }
+  } catch (err) {
+    console.error('Veri alınamadı:', err);
+    document.getElementById('matchCount').textContent = '⚠️ Bağlantı hatası';
+  }
+}
+
+fetchLive();
+setInterval(fetchLive, REFRESH_INTERVAL);
+
+// Geri sayım sayacı - bir sonraki yenilemeye kalan süre
+function updateCountdown() {
+  const remaining = Math.max(0, nextRefreshAt - Date.now());
+  const min = Math.floor(remaining / 60000);
+  const sec = Math.floor((remaining % 60000) / 1000);
+  document.getElementById('nextRefresh').textContent = `⏱ ${pad(min)}:${pad(sec)}`;
+  if (remaining <= 0) nextRefreshAt = Date.now() + REFRESH_INTERVAL;
+}
+setInterval(updateCountdown, 1000);
+updateCountdown();
+</script>
+</body>
+</html>
